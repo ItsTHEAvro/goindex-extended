@@ -6374,6 +6374,15 @@ function file_video(path) {
           transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
           opacity: 0.9;
         }
+        .goindex-video-player.goindex-video-controls-hidden .goindex-video-seek-button {
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(-50%) scale(0.92);
+        }
+        .goindex-video-player.goindex-video-controls-visible .goindex-video-seek-button {
+          opacity: 0.9;
+          pointer-events: auto;
+        }
         .goindex-video-seek-button:hover,
         .goindex-video-seek-button:focus {
           background: rgba(0, 0, 0, 0.54);
@@ -6787,9 +6796,37 @@ function file_video(path) {
         color: "#b7daff",
       },
     });
+    const seekOverlay = document.getElementById("goindex-video-player");
     const seekButtons = {
       backward: document.getElementById("seek-backward"),
       forward: document.getElementById("seek-forward"),
+    };
+    let seekOverlayHideTimer = null;
+    const setSeekOverlayVisibility = (visible) => {
+      if (!seekOverlay) return;
+      seekOverlay.classList.toggle("goindex-video-controls-visible", visible);
+      seekOverlay.classList.toggle("goindex-video-controls-hidden", !visible);
+    };
+    const clearSeekOverlayTimer = () => {
+      if (!seekOverlayHideTimer) return;
+      window.clearTimeout(seekOverlayHideTimer);
+      seekOverlayHideTimer = null;
+    };
+    const scheduleSeekOverlayHide = () => {
+      clearSeekOverlayTimer();
+      if (!dp.video || dp.video.paused || dp.video.ended) {
+        setSeekOverlayVisibility(true);
+        return;
+      }
+      seekOverlayHideTimer = window.setTimeout(() => {
+        if (!dp.video.paused && !dp.video.ended) {
+          setSeekOverlayVisibility(false);
+        }
+      }, 1200);
+    };
+    const revealSeekOverlay = () => {
+      setSeekOverlayVisibility(true);
+      scheduleSeekOverlayHide();
     };
     const seekPlayer = (seconds, button) => {
       if (!dp || !dp.video) return;
@@ -6809,7 +6846,22 @@ function file_video(path) {
           180,
         );
       }
+      revealSeekOverlay();
     };
+    ["mousemove", "touchstart", "click"].forEach((eventName) => {
+      seekOverlay.addEventListener(eventName, revealSeekOverlay);
+    });
+    dp.video.addEventListener("play", revealSeekOverlay);
+    dp.video.addEventListener("pause", () => {
+      clearSeekOverlayTimer();
+      setSeekOverlayVisibility(true);
+    });
+    dp.video.addEventListener("ended", () => {
+      clearSeekOverlayTimer();
+      setSeekOverlayVisibility(true);
+    });
+    dp.video.addEventListener("seeking", revealSeekOverlay);
+    revealSeekOverlay();
     seekButtons.backward.addEventListener("click", () =>
       seekPlayer(-10, seekButtons.backward),
     );
